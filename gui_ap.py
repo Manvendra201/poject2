@@ -1,29 +1,7 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
-from PIL import Image, ImageTk
+import streamlit as st
+from PIL import Image
 import numpy as np
-
-def open_image():
-    global img, tk_img, img_array
-    filepath = filedialog.askopenfilename()
-    if filepath:
-        img = Image.open(filepath)
-        img_array = np.array(img)
-        tk_img = ImageTk.PhotoImage(img)
-        img_label.config(image=tk_img)
-        img_label.image = tk_img
-
-def compress_image():
-    global img, tk_img, img_array
-    try:
-        k = int(k_entry.get())
-        compressed_img = compress_color_image(img_array, k)
-        compressed_img_pil = Image.fromarray(compressed_img)
-        tk_img = ImageTk.PhotoImage(compressed_img_pil)
-        img_label.config(image=tk_img)
-        img_label.image = tk_img
-    except ValueError:
-        messagebox.showerror("Input Error", "Please enter a valid integer for k")
+import io
 
 def compress_color_image(img_array, k):
     compressed_img = np.zeros_like(img_array)
@@ -34,20 +12,27 @@ def compress_color_image(img_array, k):
     compressed_img = np.clip(compressed_img, 0, 255).astype(np.uint8)
     return compressed_img
 
-app = tk.Tk()
-app.title("Color Image Compression")
+st.title("Color Image Compression")
 
-open_btn = tk.Button(app, text="Open Image", command=open_image)
-open_btn.pack()
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+if uploaded_file is not None:
+    img = Image.open(uploaded_file)
+    img_array = np.array(img)
+    st.image(img, caption='Uploaded Image', use_column_width=True)
 
-tk.Label(app, text="Enter k (number of singular values to retain):").pack()
-k_entry = tk.Entry(app)
-k_entry.pack()
-
-compress_btn = tk.Button(app, text="Compress Image", command=compress_image)
-compress_btn.pack()
-
-img_label = tk.Label(app)
-img_label.pack()
-
-app.mainloop()
+    k = st.number_input("Enter k (number of singular values to retain):", min_value=1, value=10)
+    if st.button("Compress Image"):
+        compressed_img = compress_color_image(img_array, k)
+        compressed_img_pil = Image.fromarray(compressed_img)
+        
+        buf = io.BytesIO()
+        compressed_img_pil.save(buf, format="PNG")
+        byte_im = buf.getvalue()
+        
+        st.image(compressed_img_pil, caption='Compressed Image', use_column_width=True)
+        st.download_button(
+            label="Download Compressed Image",
+            data=byte_im,
+            file_name="compressed_image.png",
+            mime="image/png"
+        )
